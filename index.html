@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>ESX Index Engine</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -27,15 +27,24 @@
   --font-mono:'JetBrains Mono', monospace;
   --font-sans:'Inter', sans-serif;
 }
-*{box-sizing:border-box;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{-webkit-text-size-adjust:100%;}
 body{
   margin:0;
   background:var(--void);
   color:var(--ink);
   font-family:var(--font-sans);
   -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
 }
-.app{max-width:1360px;margin:0 auto;padding:28px 24px 80px;}
+button, .stepper, .icon-btn, select{touch-action:manipulation;}
+.app{
+  max-width:1360px;margin:0 auto;
+  padding:28px 24px 80px;
+  padding-left:max(24px, env(safe-area-inset-left));
+  padding-right:max(24px, env(safe-area-inset-right));
+  padding-bottom:max(80px, env(safe-area-inset-bottom));
+}
 
 /* ---------- Header / ticker ---------- */
 .header{
@@ -222,7 +231,7 @@ label.field-label{
 
 /* ---------- Slider ---------- */
 .slider-row{display:flex;align-items:center;gap:12px;}
-input[type=range]{flex:1;accent-color:var(--amber);}
+input[type=range]{flex:1;accent-color:var(--amber);height:20px;}
 .slider-val{font-family:var(--font-mono);color:var(--amber);font-weight:700;min-width:42px;text-align:right;}
 
 /* ---------- Event log ---------- */
@@ -245,12 +254,56 @@ svg.chart{width:100%;height:220px;display:block;}
   font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);text-align:center;margin-top:8px;
 }
 
-/* ---------- Responsive ---------- */
+/* ---------- Auth / profile switcher ---------- */
+.auth-screen{
+  position:fixed;inset:0;z-index:50;background:var(--void);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  padding-bottom:max(24px, env(safe-area-inset-bottom));
+}
+.auth-screen.hidden{display:none;}
+.app.hidden{display:none;}
+.auth-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:28px 26px;}
+.auth-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;color:var(--ink-dim);text-transform:uppercase;}
+.auth-title{font-family:var(--font-display);font-size:24px;font-weight:600;color:var(--ink);margin:6px 0 14px;}
+.auth-note{
+  font-size:12px;line-height:1.55;color:var(--ink-muted);margin:0 0 20px;
+  background:var(--surface-raised);border:1px solid var(--hairline);border-radius:8px;padding:12px 14px;
+}
+.auth-note strong{color:var(--amber);}
+.auth-divider{height:1px;background:var(--hairline);margin:18px 0;}
+
+.profile-list{display:flex;flex-direction:column;gap:8px;margin-bottom:4px;}
+.profile-empty{font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);padding:6px 0;}
+.profile-btn{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:var(--surface-raised);border:1px solid var(--hairline);border-radius:8px;
+  padding:10px 12px;color:var(--ink);cursor:pointer;font-family:var(--font-sans);font-size:13px;font-weight:600;
+  transition:background .12s ease,border-color .12s ease;
+}
+.profile-btn:hover{background:var(--surface-hover);border-color:var(--hairline-bright);}
+.profile-avatar{
+  width:26px;height:26px;border-radius:50%;background:var(--amber-dim);color:var(--amber);
+  display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12px;font-weight:700;flex:0 0 26px;
+}
+.profile-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.profile-lock{color:var(--ink-dim);display:flex;flex:0 0 auto;}
+.profile-delete{
+  color:var(--ink-dim);display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:5px;flex:0 0 24px;
+  transition:background .12s ease,color .12s ease;
+}
+.profile-delete:hover{background:var(--rust-dim);color:var(--rust);}
+.pin-prompt{display:flex;flex-direction:column;}
+.profile-name-large{font-family:var(--font-display);font-size:18px;font-weight:600;margin-bottom:10px;}
 @media (max-width:980px){
   .grid{grid-template-columns:1fr;}
 }
 @media (max-width:640px){
-  .app{padding:18px 14px 56px;}
+  .app{
+    padding:18px 14px 56px;
+    padding-left:max(14px, env(safe-area-inset-left));
+    padding-right:max(14px, env(safe-area-inset-right));
+    padding-bottom:max(56px, env(safe-area-inset-bottom));
+  }
   .header{flex-direction:column;align-items:flex-start;gap:8px;padding-bottom:16px;margin-bottom:18px;}
   .ticker{text-align:left;width:100%;}
   .ticker .value{font-size:30px;}
@@ -258,25 +311,80 @@ svg.chart{width:100%;height:220px;display:block;}
   .wordmark .eyebrow{font-size:10px;letter-spacing:0.14em;}
   .meta-strip{gap:14px 22px;margin-bottom:18px;}
   .panel{padding:15px;margin-bottom:14px;}
-  .panel h2{font-size:12px;margin-bottom:12px;}
+  .panel h2{font-size:12px;margin-bottom:12px;flex-wrap:wrap;gap:4px;}
   .cards{grid-template-columns:1fr;}
-  .chart-stats{gap:14px 20px;}
+  .chart-stats{gap:12px 18px;}
   svg.chart{height:170px;}
   .btn-row{gap:8px;}
-  button{padding:9px 13px;font-size:12.5px;}
-  .stepper .step-btn{width:28px;flex:0 0 28px;}
-  .stepper input.num{width:52px;padding:8px 2px;}
+  button{padding:10px 14px;font-size:13px;}
+  .row2{grid-template-columns:1fr;gap:10px;}
+
+  /* Prevent iOS Safari's auto-zoom-on-focus by keeping all inputs >=16px */
+  input.num, input.text-input, select{font-size:16px;}
+  .stepper input.num{width:64px;padding:9px 2px;}
+  .stepper .step-btn{width:34px;height:34px;flex:0 0 34px;}
+  .stepper-suffix{font-size:13px;padding:0 10px 0 4px;}
   .cap-bar-wrap{width:120px;}
+
+  /* Comfortable touch targets for row actions */
+  .icon-btn{width:34px;height:34px;flex:0 0 34px;}
+  .row-actions{gap:8px;}
+
+  .table-scroll{position:relative;}
+  .scroll-hint{
+    display:block;font-family:var(--font-mono);font-size:10px;color:var(--ink-dim);
+    text-align:right;margin:6px 2px 0;letter-spacing:0.04em;
+  }
+}
+@media (min-width:641px){
+  .scroll-hint{display:none;}
 }
 @media (max-width:400px){
   .ticker .value{font-size:26px;}
-  .cap-bar-wrap{width:100px;}
-  .stepper input.num{width:44px;}
+  .cap-bar-wrap{width:96px;}
+  .stepper input.num{width:56px;}
+  th, td{padding:9px 6px;}
+}
+/* Touch devices: rely on :active feedback rather than :hover, which can
+   stick after a tap on phones/tablets. */
+@media (hover:none) and (pointer:coarse){
+  .icon-btn:hover, .step-btn:hover, button:hover{background:inherit;color:inherit;border-color:inherit;}
+  .icon-btn:active{background:var(--surface-hover);color:var(--amber);}
+  .icon-btn.remove:active{background:var(--rust-dim);color:var(--rust);}
+  .step-btn:active{background:var(--amber-dim);color:#1A1300;}
+  button.primary:active{background:#EDB43C;}
+  button.ghost:active, button:not(.primary):active{background:var(--surface-hover);}
 }
 </style>
 </head>
 <body>
-<div class="app">
+
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-eyebrow">ESX Index Engine</div>
+    <h1 class="auth-title">Sign in</h1>
+    <p class="auth-note">
+      This keeps each person's workspace separate on this device. <strong>It is not a security system</strong>
+      anyone with access to this browser can view, switch, or reset any profile below. Don't use a real password
+      as a PIN. <span id="authStorageNote"></span>
+    </p>
+
+    <div id="profileList" class="profile-list"></div>
+
+    <div class="auth-divider"></div>
+
+    <label class="field-label">New Profile Name</label>
+    <input class="text-input" id="newProfileName" type="text" maxlength="24" placeholder="e.g. Selam T.">
+    <label class="field-label">Optional PIN (4–8 digits, not secure just a deterrent)</label>
+    <input class="text-input" id="newProfilePin" type="text" inputmode="numeric" maxlength="8" placeholder="Leave blank for none">
+    <div class="btn-row">
+      <button class="primary" id="btnCreateProfile">Create &amp; continue</button>
+    </div>
+    <div class="form-status" id="authStatus"></div>
+  </div>
+</div>
+
+<div class="app hidden" id="app">
 
   <div class="header">
     <div class="wordmark">
@@ -317,11 +425,12 @@ svg.chart{width:100%;height:220px;display:block;}
           <tbody id="constituentsBody"></tbody>
         </table>
         </div>
+        <div class="scroll-hint">← swipe to see all columns →</div>
         <div class="btn-row">
           <button class="primary" id="btnRecalc">Recalculate Index</button>
           <button class="ghost" id="btnSetBase">New base</button>
           <button class="ghost" id="btnReset">Reset data</button>
-          <button class="ghost" id="btnToggleAddTicker" style="margin-left:auto;">+ Add New Ticker</button>
+          <button class="ghost" id="btnToggleAddTicker" style="margin-left:auto;">+ Add new ticker</button>
         </div>
 
         <div id="addTickerForm" class="add-ticker-form hidden">
@@ -340,7 +449,7 @@ svg.chart{width:100%;height:220px;display:block;}
           <input class="text-input" id="newName" type="text" placeholder="e.g. Dashen Bank S.C.">
           <div id="addTickerFields"></div>
           <div class="btn-row">
-            <button class="primary" id="btnAddTicker">Add to Index</button>
+            <button class="primary" id="btnAddTicker">Add to index</button>
             <button class="ghost" id="btnCancelAddTicker">Cancel</button>
           </div>
           <div class="form-status" id="addTickerStatus"></div>
@@ -407,13 +516,24 @@ svg.chart{width:100%;height:220px;display:block;}
       </div>
 
       <div class="panel">
+        <h2>Session</h2>
+        <div class="cards" style="grid-template-columns:1fr;margin-bottom:14px;">
+          <div class="card"><div class="k">Signed in as</div><div class="v" id="sessionUser" style="font-size:15px;">—</div></div>
+        </div>
+        <div class="btn-row">
+          <button class="ghost" id="btnSwitchUser">Switch user</button>
+          <button class="ghost" id="btnDeleteMyData">Delete my saved data</button>
+        </div>
+      </div>
+
+      <div class="panel">
         <h2>Event log</h2>
         <div class="log" id="eventLog"></div>
       </div>
     </div>
   </div>
 
-  <div class="footer-note" id="footerNote">All figures are illustrative sample data — connect a live feed via the constituent price fields to use with real market data.</div>
+  <div class="footer-note" id="footerNote">All figures are illustrative sample data connect a live feed via the constituent price fields to use with real market data.</div>
 </div>
 
 <script>
@@ -443,13 +563,20 @@ let state = {
 
 let editError = "";       // inline validation message for the row being edited
 
-/* ---------------- Persistence ---------------- */
-/* Saved to the browser's localStorage so Add/Edit/Remove and every other
-   change survive a page refresh. If localStorage is unavailable (e.g. a
-   sandboxed preview), the app degrades gracefully to in-memory only -
-   it still works for the session, it just won't survive a refresh there. */
+/* ---------------- Persistence (per signed-in profile) ---------------- */
+/* Saved to the browser's localStorage, namespaced per profile, so
+   Add/Edit/Remove and every other change survive a page refresh. If
+   localStorage is unavailable (e.g. a sandboxed preview), the app
+   degrades gracefully to in-memory only - it still works for the
+   session, it just won't survive a refresh there. */
 
 const STORAGE_KEY = "esx_index_engine_state_v1";
+const PROFILES_KEY = "esx_index_engine_profiles_v1";
+
+let storageOk = false;      // set once at page load
+let currentUser = null;     // the signed-in profile's name, or null while on the auth screen
+let pendingProfile = null;  // profile awaiting PIN entry
+let inMemoryProfiles = [];  // fallback profile list when storage is unavailable
 
 function storageAvailable(){
   try{
@@ -460,6 +587,10 @@ function storageAvailable(){
   } catch(err){
     return false;
   }
+}
+
+function profileStorageKey(username){
+  return `${STORAGE_KEY}::${username}`;
 }
 
 function snapshotForStorage(){
@@ -477,17 +608,18 @@ function snapshotForStorage(){
 }
 
 function saveState(){
-  if(!storageOk) return;
+  if(!storageOk || !currentUser) return;
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotForStorage()));
+    localStorage.setItem(profileStorageKey(currentUser), JSON.stringify(snapshotForStorage()));
   } catch(err){
     // Quota exceeded or storage revoked mid-session - fail silently, keep working in-memory.
   }
 }
 
 function loadState(){
+  if(!storageOk || !currentUser) return null;
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(profileStorageKey(currentUser));
     if(!raw) return null;
     const data = JSON.parse(raw);
     if(!data || !Array.isArray(data.constituents) || data.constituents.length===0) return null;
@@ -497,7 +629,157 @@ function loadState(){
   }
 }
 
-let storageOk = false; // set during boot()
+/* ---------------- Profile switcher ---------------- */
+/* NOTE: this separates workspaces per named person on this device - it is
+   NOT authentication. Any check here runs in the browser and can be seen
+   or bypassed via dev tools; there is no server to verify identity
+   against. The optional PIN is a light deterrent against a stray click,
+   not a password. */
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, ch => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[ch]));
+}
+
+function loadProfiles(){
+  if(!storageOk) return inMemoryProfiles;
+  try{
+    const raw = localStorage.getItem(PROFILES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(err){
+    return inMemoryProfiles;
+  }
+}
+
+function saveProfiles(list){
+  if(!storageOk){ inMemoryProfiles = list; return; }
+  try{
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(list));
+  } catch(err){
+    inMemoryProfiles = list;
+  }
+}
+
+function renderProfileList(){
+  const wrap = document.getElementById("profileList");
+  const profiles = loadProfiles();
+  if(profiles.length === 0){
+    wrap.innerHTML = `<div class="profile-empty">No profiles yet on this device — create one below.</div>`;
+    return;
+  }
+  wrap.innerHTML = profiles.map(p => `
+    <button type="button" class="profile-btn" data-username="${escapeHtml(p.username)}">
+      <span class="profile-avatar">${escapeHtml(p.username.charAt(0).toUpperCase())}</span>
+      <span class="profile-name">${escapeHtml(p.username)}</span>
+      ${p.pin ? `<span class="profile-lock" title="PIN protected">${ICON_LOCK}</span>` : ""}
+      <span class="profile-delete" data-username="${escapeHtml(p.username)}" title="Remove profile">${ICON_X}</span>
+    </button>
+  `).join("");
+}
+
+function renderPinPrompt(p){
+  const wrap = document.getElementById("profileList");
+  wrap.innerHTML = `
+    <div class="pin-prompt">
+      <div class="profile-name-large">${escapeHtml(p.username)}</div>
+      <label class="field-label">Enter PIN</label>
+      <input class="text-input" id="pinInput" type="text" inputmode="numeric" maxlength="8">
+      <div class="btn-row">
+        <button class="primary" id="btnPinSubmit">Continue</button>
+        <button class="ghost" id="btnPinCancel">Back</button>
+      </div>
+      <div class="form-status" id="pinStatus"></div>
+    </div>`;
+  document.getElementById("pinInput").focus();
+  document.getElementById("btnPinSubmit").addEventListener("click", ()=>{
+    const entered = document.getElementById("pinInput").value.trim();
+    if(entered === p.pin){
+      pendingProfile = null;
+      signIn(p.username);
+    } else {
+      const statusEl = document.getElementById("pinStatus");
+      showStatus(statusEl, "Incorrect PIN.", true);
+    }
+  });
+  document.getElementById("pinInput").addEventListener("keydown", (e)=>{
+    if(e.key === "Enter") document.getElementById("btnPinSubmit").click();
+  });
+  document.getElementById("btnPinCancel").addEventListener("click", ()=>{
+    pendingProfile = null;
+    renderProfileList();
+  });
+}
+
+function selectProfile(username){
+  const profiles = loadProfiles();
+  const p = profiles.find(x=>x.username===username);
+  if(!p) return;
+  if(p.pin){
+    pendingProfile = username;
+    renderPinPrompt(p);
+  } else {
+    signIn(username);
+  }
+}
+
+function deleteProfile(username){
+  if(!confirm(`Remove profile "${username}" from this list and delete its saved data? This cannot be undone.`)) return;
+  const profiles = loadProfiles().filter(p=>p.username !== username);
+  saveProfiles(profiles);
+  if(storageOk){
+    try{ localStorage.removeItem(profileStorageKey(username)); } catch(err){}
+  }
+  renderProfileList();
+}
+
+function createProfile(){
+  const statusEl = document.getElementById("authStatus");
+  const name = document.getElementById("newProfileName").value.trim();
+  const pin = document.getElementById("newProfilePin").value.trim();
+
+  if(!name) return showStatus(statusEl, "Enter a name.", true);
+  if(name.length > 24) return showStatus(statusEl, "Name must be 24 characters or fewer.", true);
+  const profiles = loadProfiles();
+  if(profiles.some(p=>p.username.toLowerCase() === name.toLowerCase())){
+    return showStatus(statusEl, `"${name}" already exists — select it above.`, true);
+  }
+  if(pin && !/^[0-9]{4,8}$/.test(pin)){
+    return showStatus(statusEl, "PIN must be 4-8 digits, or left blank.", true);
+  }
+
+  profiles.push({username:name, pin: pin || null});
+  saveProfiles(profiles);
+  signIn(name);
+}
+
+function signIn(username){
+  currentUser = username;
+  document.getElementById("authScreen").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("sessionUser").textContent = username;
+  document.getElementById("newProfileName").value = "";
+  document.getElementById("newProfilePin").value = "";
+  document.getElementById("authStatus").textContent = "";
+  boot();
+}
+
+function switchUser(){
+  currentUser = null;
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("authScreen").classList.remove("hidden");
+  pendingProfile = null;
+  renderProfileList();
+}
+
+function deleteMyData(){
+  if(!currentUser) return;
+  if(!confirm(`Delete all saved data for "${currentUser}" on this device? This cannot be undone.`)) return;
+  if(storageOk){
+    try{ localStorage.removeItem(profileStorageKey(currentUser)); } catch(err){}
+  }
+  hardReset();
+}
 
 function cloneSample(){
   return SAMPLE_CONSTITUENTS.map(c => ({...c, active:true}));
@@ -619,6 +901,7 @@ const ICON_EDIT = `<svg width="12" height="12" viewBox="0 0 16 16"><path d="M11.
 const ICON_TRASH = `<svg width="12" height="12" viewBox="0 0 16 16"><path d="M3 4.2h10M6.4 4.2V2.6h3.2v1.6M4.6 4.2l.5 9.4c.03.5.45.9.95.9h3.8c.5 0 .92-.4.95-.9l.5-9.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICON_CHECK = `<svg width="12" height="12" viewBox="0 0 16 16"><path d="M3 8.5l3.3 3.3L13 4.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICON_X = `<svg width="12" height="12" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+const ICON_LOCK = `<svg width="11" height="11" viewBox="0 0 16 16"><rect x="3.3" y="7" width="9.4" height="6.6" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5.2a2.5 2.5 0 015 0V7" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`;
 
 function stepper({ticker, field, id, value, step, decimals, min=0, max=1e9, suffix="", wide=false}){
   const dataAttrs = ticker ? `data-ticker="${ticker}" data-field="${field}"` : `id="${id}"`;
@@ -673,12 +956,12 @@ function renderTable(){
 
     const identityCell = editing
       ? `<div class="edit-cell">
-           <input class="text-input ticker-upper" id="editTickerInput" value="${c.ticker}" maxlength="10" placeholder="Ticker">
-           <input class="text-input" id="editNameInput" value="${c.name}" placeholder="Company name">
-           <input class="text-input" id="editSectorInput" value="${c.sector}" placeholder="Sector">
+           <input class="text-input ticker-upper" id="editTickerInput" value="${escapeHtml(c.ticker)}" maxlength="10" placeholder="Ticker">
+           <input class="text-input" id="editNameInput" value="${escapeHtml(c.name)}" placeholder="Company name">
+           <input class="text-input" id="editSectorInput" value="${escapeHtml(c.sector)}" placeholder="Sector">
            ${editError ? `<div class="edit-error">${editError}</div>` : ""}
          </div>`
-      : `<div class="ticker-cell"><span class="t">${c.ticker}</span><span class="n">${c.name}</span></div>`;
+      : `<div class="ticker-cell"><span class="t">${escapeHtml(c.ticker)}</span><span class="n">${escapeHtml(c.name)}</span></div>`;
 
     const actionsCell = editing
       ? `<div class="row-actions">
@@ -754,7 +1037,7 @@ function renderLog(){
   state.log.slice(-40).forEach(entry=>{
     const div = document.createElement("div");
     div.className = "log-entry";
-    div.innerHTML = `<span class="d">${entry.date}</span>${entry.note}`;
+    div.innerHTML = `<span class="d">${escapeHtml(entry.date)}</span>${escapeHtml(entry.note)}`;
     el.appendChild(div);
   });
 }
@@ -1169,14 +1452,13 @@ function applySavedState(data){
 }
 
 function boot(){
-  storageOk = storageAvailable();
   const footerEl = document.getElementById("footerNote");
   if(footerEl){
     footerEl.textContent = storageOk
-      ? "Autosaved to this browser — Add/Edit/Remove and every recalculation survive a refresh. \"Reset sample data\" clears it. All figures are illustrative sample data."
+      ? `Autosaved to this browser as "${currentUser}" — Add/Edit/Remove and every recalculation survive a refresh. "Reset sample data" clears it. All figures are illustrative sample data.`
       : "Autosave is unavailable in this preview, so changes will reset on refresh — download the file and open it in a browser to keep your changes. All figures are illustrative sample data.";
   }
-  const saved = storageOk ? loadState() : null;
+  const saved = loadState();
   try{
     if(saved) applySavedState(saved);
     else hardReset();
@@ -1190,8 +1472,32 @@ document.getElementById("btnReset").addEventListener("click", ()=>{
     hardReset();
   }
 });
+document.getElementById("btnSwitchUser").addEventListener("click", switchUser);
+document.getElementById("btnDeleteMyData").addEventListener("click", deleteMyData);
+document.getElementById("btnCreateProfile").addEventListener("click", createProfile);
+document.getElementById("newProfileName").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") document.getElementById("btnCreateProfile").click();
+});
+document.getElementById("newProfilePin").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") document.getElementById("btnCreateProfile").click();
+});
+document.getElementById("profileList").addEventListener("click", (e)=>{
+  const delBtn = e.target.closest(".profile-delete");
+  if(delBtn){ deleteProfile(delBtn.dataset.username); return; }
+  const profBtn = e.target.closest(".profile-btn");
+  if(profBtn){ selectProfile(profBtn.dataset.username); }
+});
 
-boot();
+function initApp(){
+  storageOk = storageAvailable();
+  const note = document.getElementById("authStorageNote");
+  if(note && !storageOk){
+    note.textContent = "Also: this preview can't access persistent storage at all, so profiles here will only last for this session.";
+  }
+  renderProfileList();
+}
+
+initApp();
 </script>
 </body>
 </html>
