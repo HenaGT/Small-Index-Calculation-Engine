@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ESX Index Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0A0D12;
+  --surface:#12161F;
+  --surface-raised:#1A2028;
+  --surface-hover:#212836;
+  --hairline:#262E3D;
+  --hairline-bright:#374158;
+  --ink:#E7EAEF;
+  --ink-muted:#8A93A6;
+  --ink-dim:#5B6478;
+  --amber:#E0A526;
+  --amber-dim:#8A6A22;
+  --teal:#3FA796;
+  --teal-dim:#1F534B;
+  --rust:#C1543C;
+  --rust-dim:#5C2A20;
+  --font-display:'Spectral', serif;
+  --font-mono:'JetBrains Mono', monospace;
+  --font-sans:'Inter', sans-serif;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--void);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;
+}
+.app{max-width:1360px;margin:0 auto;padding:28px 24px 80px;}
+
+/* ---------- Header / ticker ---------- */
+.header{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  border-bottom:1px solid var(--hairline);
+  padding-bottom:20px;margin-bottom:24px;flex-wrap:wrap;gap:16px;
+}
+.wordmark{display:flex;flex-direction:column;gap:4px;}
+.wordmark .eyebrow{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:0.18em;
+  color:var(--ink-dim);text-transform:uppercase;
+}
+.wordmark h1{
+  font-family:var(--font-display);font-weight:600;font-size:28px;margin:0;
+  color:var(--ink);letter-spacing:0.01em;
+}
+.ticker{text-align:right;}
+.ticker .value{
+  font-family:var(--font-mono);font-weight:700;font-size:38px;color:var(--amber);
+  line-height:1;
+}
+.ticker .delta{
+  font-family:var(--font-mono);font-size:14px;margin-top:6px;
+}
+.delta.up{color:var(--teal);}
+.delta.down{color:var(--rust);}
+.delta.flat{color:var(--ink-muted);}
+
+.meta-strip{
+  display:flex;gap:28px;flex-wrap:wrap;margin-bottom:24px;
+  font-family:var(--font-mono);font-size:12px;color:var(--ink-muted);
+}
+.meta-strip .chip{display:flex;flex-direction:column;gap:3px;}
+.meta-strip .chip .label{color:var(--ink-dim);letter-spacing:0.08em;text-transform:uppercase;font-size:10px;}
+.meta-strip .chip .val{color:var(--ink);font-size:14px;font-weight:600;}
+
+/* ---------- Layout ---------- */
+.grid{display:grid;grid-template-columns:1.55fr 1fr;gap:20px;}
+
+.panel{
+  background:var(--surface);border:1px solid var(--hairline);border-radius:10px;
+  padding:20px;margin-bottom:20px;
+}
+.panel h2{
+  font-family:var(--font-sans);font-size:13px;font-weight:600;letter-spacing:0.06em;
+  text-transform:uppercase;color:var(--ink-muted);margin:0 0 16px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.panel h2 .sub{font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-dim);font-size:12px;}
+
+/* ---------- Constituents table ---------- */
+table{width:100%;border-collapse:collapse;}
+th{
+  text-align:left;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--ink-dim);font-weight:600;padding:0 8px 10px;border-bottom:1px solid var(--hairline);
+}
+td{padding:10px 8px;border-bottom:1px solid var(--hairline);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+.ticker-cell{display:flex;flex-direction:column;gap:2px;}
+.ticker-cell .t{font-family:var(--font-mono);font-weight:700;color:var(--ink);font-size:13px;}
+.ticker-cell .n{font-size:11px;color:var(--ink-dim);}
+input.num{
+  width:100%;background:transparent;border:none;color:var(--ink);
+  font-family:var(--font-mono);font-size:12px;padding:7px 4px;text-align:center;
+}
+input.num:focus{outline:none;}
+
+/* custom stepper control (replaces native number spinners) */
+.stepper{
+  display:inline-flex;align-items:stretch;background:var(--surface-raised);
+  border:1px solid var(--hairline);border-radius:7px;overflow:hidden;
+  transition:border-color .15s ease;
+}
+.stepper:focus-within{border-color:var(--amber-dim);}
+.stepper.wide{display:flex;width:100%;}
+.stepper.wide input.num{flex:1;width:auto;}
+.stepper input.num{width:60px;min-width:0;}
+.stepper .step-btn{
+  display:flex;align-items:center;justify-content:center;width:22px;flex:0 0 22px;
+  background:transparent;border:none;color:var(--ink-dim);cursor:pointer;padding:0;
+  transition:background .12s ease, color .12s ease;
+}
+.stepper .step-btn:hover{background:var(--surface-hover);color:var(--amber);}
+.stepper .step-btn:active{background:var(--amber-dim);color:#1A1300;}
+.stepper .step-btn svg{pointer-events:none;display:block;}
+.stepper .step-dec{border-right:1px solid var(--hairline);}
+.stepper .step-inc{border-left:1px solid var(--hairline);}
+.stepper-suffix{
+  display:flex;align-items:center;padding:0 9px 0 2px;font-family:var(--font-mono);
+  font-size:11px;color:var(--ink-dim);border-left:1px solid var(--hairline);
+}
+
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;}
+.table-scroll table{min-width:700px;}
+
+/* capping bar - signature element */
+.cap-bar-wrap{width:150px;}
+.cap-bar-track{
+  position:relative;height:8px;background:var(--surface-raised);border-radius:4px;overflow:visible;
+}
+.cap-bar-fill{
+  position:absolute;top:0;left:0;height:100%;border-radius:4px;background:var(--teal);transition:width .25s ease;
+}
+.cap-bar-fill.breach{background:var(--rust);}
+.cap-line{
+  position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--amber);
+}
+.cap-readout{
+  font-family:var(--font-mono);font-size:11px;margin-top:5px;display:flex;justify-content:space-between;
+  color:var(--ink-muted);
+}
+.badge{
+  font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:4px;letter-spacing:0.04em;
+  text-transform:uppercase;font-weight:700;
+}
+.badge.capped{background:var(--rust-dim);color:#F0B4A6;}
+.badge.ok{background:var(--teal-dim);color:#B6E6DC;}
+
+/* ---------- Row actions (edit / remove / save / cancel) ---------- */
+.row-actions{display:flex;gap:6px;}
+.icon-btn{
+  display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 26px;
+  border-radius:6px;border:1px solid var(--hairline);background:var(--surface-raised);
+  color:var(--ink-muted);cursor:pointer;padding:0;transition:background .12s ease,color .12s ease,border-color .12s ease;
+}
+.icon-btn:hover{background:var(--surface-hover);color:var(--amber);border-color:var(--hairline-bright);}
+.icon-btn.remove:hover{color:var(--rust);border-color:var(--rust-dim);background:var(--rust-dim);}
+.icon-btn.save{color:var(--teal);border-color:var(--teal-dim);}
+.icon-btn.save:hover{background:var(--teal-dim);color:#0A0D12;}
+.icon-btn.cancel:hover{color:var(--rust);}
+.edit-cell{display:flex;flex-direction:column;gap:5px;min-width:150px;}
+.edit-cell input.text-input{padding:6px 8px;font-size:11px;}
+.edit-error{
+  font-family:var(--font-mono);font-size:10.5px;color:var(--rust);margin-top:2px;
+}
+
+/* ---------- Text inputs (ticker / name / sector) ---------- */
+input.text-input{
+  width:100%;background:var(--surface-raised);border:1px solid var(--hairline);color:var(--ink);
+  font-family:var(--font-mono);font-size:12px;padding:9px 10px;border-radius:6px;
+}
+input.text-input:focus{outline:none;border-color:var(--amber-dim);}
+input.text-input::placeholder{color:var(--ink-dim);}
+.ticker-upper{text-transform:uppercase;letter-spacing:0.05em;}
+
+/* ---------- Add-ticker form ---------- */
+.add-ticker-divider{height:1px;background:var(--hairline);margin:18px 0 16px;}
+.add-ticker-form.hidden{display:none;}
+.form-status{
+  font-family:var(--font-mono);font-size:11.5px;margin-top:10px;min-height:14px;
+}
+.form-status.error{color:var(--rust);}
+.form-status.success{color:var(--teal);}
+
+/* ---------- Buttons / inputs ---------- */
+button{
+  font-family:var(--font-sans);font-size:13px;font-weight:600;padding:9px 16px;border-radius:7px;
+  border:1px solid var(--hairline-bright);background:var(--surface-raised);color:var(--ink);cursor:pointer;
+  transition:background .15s ease, border-color .15s ease;
+}
+button:hover{background:var(--surface-hover);}
+button.primary{background:var(--amber);border-color:var(--amber);color:#1A1300;}
+button.primary:hover{background:#EDB43C;}
+button.ghost{background:transparent;}
+button:disabled{opacity:0.4;cursor:not-allowed;}
+select{
+  font-family:var(--font-mono);font-size:12px;background:var(--surface-raised);
+  border:1px solid var(--hairline);color:var(--ink);padding:8px 10px;border-radius:6px;width:100%;
+}
+label.field-label{
+  display:block;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-dim);
+  margin-bottom:5px;margin-top:12px;
+}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.btn-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
+
+/* ---------- Summary cards ---------- */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px;}
+.card{
+  background:var(--surface-raised);border:1px solid var(--hairline);border-radius:8px;padding:14px;
+}
+.card .k{font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:6px;}
+.card .v{font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--ink);}
+
+/* ---------- Slider ---------- */
+.slider-row{display:flex;align-items:center;gap:12px;}
+input[type=range]{flex:1;accent-color:var(--amber);}
+.slider-val{font-family:var(--font-mono);color:var(--amber);font-weight:700;min-width:42px;text-align:right;}
+
+/* ---------- Event log ---------- */
+.log{max-height:230px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:8px;}
+.log-entry{
+  font-family:var(--font-mono);font-size:11.5px;color:var(--ink-muted);
+  border-left:2px solid var(--hairline-bright);padding:6px 10px;line-height:1.5;
+}
+.log-entry .d{color:var(--amber);font-weight:600;margin-right:8px;}
+.log::-webkit-scrollbar{width:6px;}
+.log::-webkit-scrollbar-thumb{background:var(--hairline-bright);border-radius:3px;}
+
+/* ---------- Chart ---------- */
+.chart-stats{display:flex;gap:24px;margin-bottom:14px;flex-wrap:wrap;}
+.chart-stats .stat .k{font-size:10px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:0.06em;}
+.chart-stats .stat .v{font-family:var(--font-mono);font-size:16px;font-weight:600;}
+svg.chart{width:100%;height:220px;display:block;}
+
+.footer-note{
+  font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);text-align:center;margin-top:8px;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width:980px){
+  .grid{grid-template-columns:1fr;}
+}
+@media (max-width:640px){
+  .app{padding:18px 14px 56px;}
+  .header{flex-direction:column;align-items:flex-start;gap:8px;padding-bottom:16px;margin-bottom:18px;}
+  .ticker{text-align:left;width:100%;}
+  .ticker .value{font-size:30px;}
+  .wordmark h1{font-size:21px;}
+  .wordmark .eyebrow{font-size:10px;letter-spacing:0.14em;}
+  .meta-strip{gap:14px 22px;margin-bottom:18px;}
+  .panel{padding:15px;margin-bottom:14px;}
+  .panel h2{font-size:12px;margin-bottom:12px;}
+  .cards{grid-template-columns:1fr;}
+  .chart-stats{gap:14px 20px;}
+  svg.chart{height:170px;}
+  .btn-row{gap:8px;}
+  button{padding:9px 13px;font-size:12.5px;}
+  .stepper .step-btn{width:28px;flex:0 0 28px;}
+  .stepper input.num{width:52px;padding:8px 2px;}
+  .cap-bar-wrap{width:120px;}
+}
+@media (max-width:400px){
+  .ticker .value{font-size:26px;}
+  .cap-bar-wrap{width:100px;}
+  .stepper input.num{width:44px;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="wordmark">
+      <div class="eyebrow">ESX Index Engine Trading Desk Console</div>
+      <h1 id="indexName">ESX Flagship Index</h1>
+    </div>
+    <div class="ticker">
+      <div class="value" id="tickerValue">1,000.00</div>
+      <div class="delta flat" id="tickerDelta">— vs base</div>
+    </div>
+  </div>
+
+  <div class="meta-strip">
+    <div class="chip"><span class="label">Base Date</span><span class="val" id="metaBaseDate">—</span></div>
+    <div class="chip"><span class="label">Base Value</span><span class="val" id="metaBaseValue">—</span></div>
+    <div class="chip"><span class="label">Divisor</span><span class="val" id="metaDivisor">—</span></div>
+    <div class="chip"><span class="label">Cap</span><span class="val" id="metaCap">15%</span></div>
+    <div class="chip"><span class="label">Constituents</span><span class="val" id="metaCount">—</span></div>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT COLUMN -->
+    <div>
+      <div class="panel">
+        <h2>Constituents</h2>
+        <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Price</th>
+              <th>Shares (M)</th>
+              <th>Free Float</th>
+              <th>Weight <br> (raw → effective)</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="constituentsBody"></tbody>
+        </table>
+        </div>
+        <div class="btn-row">
+          <button class="primary" id="btnRecalc">Recalculate Index</button>
+          <button class="ghost" id="btnSetBase">New base</button>
+          <button class="ghost" id="btnReset">Reset data</button>
+          <button class="ghost" id="btnToggleAddTicker" style="margin-left:auto;">+ Add New Ticker</button>
+        </div>
+
+        <div id="addTickerForm" class="add-ticker-form hidden">
+          <div class="add-ticker-divider"></div>
+          <div class="row2">
+            <div>
+              <label class="field-label">Ticker</label>
+              <input class="text-input ticker-upper" id="newTicker" type="text" maxlength="10" placeholder="e.g. DASH">
+            </div>
+            <div>
+              <label class="field-label">Sector</label>
+              <input class="text-input" id="newSector" type="text" placeholder="e.g. Banking">
+            </div>
+          </div>
+          <label class="field-label">Company name</label>
+          <input class="text-input" id="newName" type="text" placeholder="e.g. Dashen Bank S.C.">
+          <div id="addTickerFields"></div>
+          <div class="btn-row">
+            <button class="primary" id="btnAddTicker">Add to Index</button>
+            <button class="ghost" id="btnCancelAddTicker">Cancel</button>
+          </div>
+          <div class="form-status" id="addTickerStatus"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Historical backtest</h2>
+        <div class="chart-stats">
+          <div class="stat"><div class="k">Start</div><div class="v" id="btStart">—</div></div>
+          <div class="stat"><div class="k">End</div><div class="v" id="btEnd">—</div></div>
+          <div class="stat"><div class="k">Total return</div><div class="v" id="btReturn">—</div></div>
+          <div class="stat"><div class="k">Rebalance events</div><div class="v" id="btRebalances">—</div></div>
+        </div>
+        <svg class="chart" id="btChart" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
+        <div class="btn-row">
+          <button class="primary" id="btnBacktest">Run 60-day backtest</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+      <div class="panel">
+        <h2>Index summary</h2>
+        <div class="cards">
+          <div class="card"><div class="k">Total Free-Float Mkt Cap</div><div class="v" id="cardFFMC">—</div></div>
+          <div class="card"><div class="k">Largest weight</div><div class="v" id="cardMax">—</div></div>
+        </div>
+        <label class="field-label">Single-constituent cap</label>
+        <div class="slider-row">
+          <input type="range" id="capSlider" min="10" max="15" step="0.5" value="15">
+          <div class="slider-val" id="capSliderVal">15%</div>
+        </div>
+        <div class="btn-row">
+          <button id="btnRebalance">Apply cap &amp; rebalance</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Corporate action</h2>
+        <label class="field-label">Ticker</label>
+        <select id="caTicker"></select>
+        <label class="field-label">Action type</label>
+        <select id="caType">
+          <option value="split">Stock split</option>
+          <option value="rights_issue">Rights issue</option>
+          <option value="free_float_update">Free-float update</option>
+          <option value="cash_dividend">Cash dividend</option>
+          <option value="deletion">Deletion / delisting</option>
+        </select>
+        <div id="caDetailWrap"></div>
+        <div class="btn-row">
+          <button class="primary" id="btnApplyCA">Apply action</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Export</h2>
+        <div class="btn-row">
+          <button id="btnExportCSV">Export CSV</button>
+          <button id="btnExportJSON">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Event log</h2>
+        <div class="log" id="eventLog"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note" id="footerNote">All figures are illustrative sample data — connect a live feed via the constituent price fields to use with real market data.</div>
+</div>
+
+<script>
+/* =========================================================================
+   ESX INDEX ENGINE — client-side mirror of the Python engine's logic
+   ========================================================================= */
+
+const SAMPLE_CONSTITUENTS = [
+  {ticker:"ETEL", name:"Ethio Telecom",              price:845.00, shares:120, ff:0.15, sector:"Telecom"},
+  {ticker:"CBE",  name:"Commercial Bank of Ethiopia", price:610.50, shares:85,  ff:0.18, sector:"Banking"},
+  {ticker:"AWSH", name:"Awash Bank S.C.",             price:455.25, shares:42,  ff:0.22, sector:"Banking"},
+  {ticker:"BOA",  name:"Bank of Abyssinia S.C.",      price:398.75, shares:31,  ff:0.20, sector:"Banking"},
+  {ticker:"NIB",  name:"Nib Insurance S.C.",          price:212.10, shares:18.5,ff:0.25, sector:"Insurance"},
+];
+
+let state = {
+  constituents: [],     // {ticker,name,price,shares(millions),ff,sector,active}
+  capPct: 0.15,
+  capFactors: {},        // ticker -> factor
+  divisor: null,
+  baseDate: null,
+  baseValue: null,
+  history: [],           // [{date, indexValue, ...}]
+  log: [],
+  editingTicker: null,    // ticker currently in inline edit mode, or null
+};
+
+let editError = "";       // inline validation message for the row being edited
+
+/* ---------------- Persistence ---------------- */
+/* Saved to the browser's localStorage so Add/Edit/Remove and every other
+   change survive a page refresh. If localStorage is unavailable (e.g. a
+   sandboxed preview), the app degrades gracefully to in-memory only -
+   it still works for the session, it just won't survive a refresh there. */
+
+const STORAGE_KEY = "esx_index_engine_state_v1";
+
+function storageAvailable(){
+  try{
+    const testKey = "__esx_storage_test__";
+    localStorage.setItem(testKey, "1");
+    localStorage.removeItem(testKey);
+    return true;
+  } catch(err){
+    return false;
+  }
+}
+
+function snapshotForStorage(){
+  return {
+    indexName: document.getElementById("indexName").textContent,
+    constituents: state.constituents,
+    capPct: state.capPct,
+    capFactors: state.capFactors,
+    divisor: state.divisor,
+    baseDate: state.baseDate,
+    baseValue: state.baseValue,
+    history: state.history,
+    log: state.log,
+  };
+}
+
+function saveState(){
+  if(!storageOk) return;
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotForStorage()));
+  } catch(err){
+    // Quota exceeded or storage revoked mid-session - fail silently, keep working in-memory.
+  }
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const data = JSON.parse(raw);
+    if(!data || !Array.isArray(data.constituents) || data.constituents.length===0) return null;
+    return data;
+  } catch(err){
+    return null;
+  }
+}
+
+let storageOk = false; // set during boot()
+
+function cloneSample(){
+  return SAMPLE_CONSTITUENTS.map(c => ({...c, active:true}));
+}
+
+function ffmc(c){ return c.price * (c.shares*1e6) * c.ff; }
+
+function activeConstituents(){ return state.constituents.filter(c=>c.active); }
+
+function rawWeights(){
+  const active = activeConstituents();
+  const total = active.reduce((s,c)=>s+ffmc(c),0);
+  const w = {};
+  active.forEach(c => w[c.ticker] = total>0 ? ffmc(c)/total : 0);
+  return w;
+}
+
+// Iterative proportional cap redistribution (mirrors capping.py)
+function applyCap(raw, capPct){
+  const tickers = Object.keys(raw);
+  const n = tickers.length;
+  if(n===0) return {};
+  if(capPct * n < 1 - 1e-9){
+    const eq = 1/n; const out={}; tickers.forEach(t=>out[t]=eq); return out;
+  }
+  let weights = {...raw};
+  const locked = new Set();
+  for(let pass=0; pass<n+1; pass++){
+    const over = tickers.filter(t=>!locked.has(t) && weights[t] > capPct + 1e-9);
+    if(over.length===0) break;
+    let excess = 0;
+    over.forEach(t=>{ excess += weights[t]-capPct; weights[t]=capPct; locked.add(t); });
+    const free = tickers.filter(t=>!locked.has(t));
+    const freeTotal = free.reduce((s,t)=>s+weights[t],0);
+    if(freeTotal<=1e-9) break;
+    free.forEach(t=>{ weights[t] += (weights[t]/freeTotal)*excess; });
+  }
+  const total = Object.values(weights).reduce((a,b)=>a+b,0);
+  if(total>0) tickers.forEach(t=>weights[t]/=total);
+  return weights;
+}
+
+function factorsFromWeights(raw, capped){
+  const f = {};
+  Object.keys(raw).forEach(t=>{ f[t] = raw[t]>0 ? capped[t]/raw[t] : 1.0; });
+  return f;
+}
+
+function cappedTotalFFMC(){
+  return activeConstituents().reduce((s,c)=>s + ffmc(c) * (state.capFactors[c.ticker] ?? 1.0), 0);
+}
+
+function currentIndexValue(){
+  if(!state.divisor) return 0;
+  return cappedTotalFFMC() / state.divisor;
+}
+
+function effectiveWeights(){
+  const total = cappedTotalFFMC();
+  const w = {};
+  activeConstituents().forEach(c=>{
+    w[c.ticker] = total>0 ? (ffmc(c) * (state.capFactors[c.ticker] ?? 1.0)) / total : 0;
+  });
+  return w;
+}
+
+function setBase(dateStr, baseValue){
+  state.baseDate = dateStr;
+  state.baseValue = baseValue;
+  const raw = rawWeights();
+  const capped = applyCap(raw, state.capPct);
+  state.capFactors = factorsFromWeights(raw, capped);
+  const total = cappedTotalFFMC();
+  state.divisor = total / baseValue;
+  pushHistory(dateStr, `Base established: ${activeConstituents().length} constituents, base value ${fmt(baseValue)}, divisor ${state.divisor.toFixed(2)}`);
+}
+
+function rebalance(dateStr, referenceValue, reason){
+  const raw = rawWeights();
+  const capped = applyCap(raw, state.capPct);
+  state.capFactors = factorsFromWeights(raw, capped);
+  const newTotal = cappedTotalFFMC();
+  const ref = referenceValue ?? currentIndexValue();
+  state.divisor = ref>0 ? newTotal/ref : state.divisor;
+  pushHistory(dateStr, `${reason}: divisor reset to ${state.divisor.toFixed(2)}, continuity preserved at ${fmt(ref)}`);
+}
+
+function pushHistory(dateStr, note){
+  state.history.push({
+    date: dateStr,
+    indexValue: currentIndexValue(),
+    divisor: state.divisor,
+    weights: effectiveWeights(),
+  });
+  if(note) logEvent(dateStr, note);
+  saveState();
+}
+
+function logEvent(dateStr, note){
+  state.log.push({date:dateStr, note});
+  renderLog();
+}
+
+function nextDate(){
+  const last = state.history.length ? state.history[state.history.length-1].date : state.baseDate;
+  const d = last ? new Date(last) : new Date();
+  d.setDate(d.getDate()+1);
+  return d.toISOString().slice(0,10);
+}
+
+function fmt(n){ return Number(n).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function pct(n){ return (n*100).toFixed(1)+"%"; }
+
+/* ---------------- Stepper control ---------------- */
+
+const ICON_MINUS = `<svg width="9" height="9" viewBox="0 0 9 9"><line x1="1" y1="4.5" x2="8" y2="4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+const ICON_PLUS = `<svg width="9" height="9" viewBox="0 0 9 9"><line x1="4.5" y1="1" x2="4.5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="4.5" x2="8" y2="4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+const ICON_EDIT = `<svg width="12" height="12" viewBox="0 0 16 16"><path d="M11.3 1.7l3 3-8.4 8.4H2.9v-3l8.4-8.4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+const ICON_TRASH = `<svg width="12" height="12" viewBox="0 0 16 16"><path d="M3 4.2h10M6.4 4.2V2.6h3.2v1.6M4.6 4.2l.5 9.4c.03.5.45.9.95.9h3.8c.5 0 .92-.4.95-.9l.5-9.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICON_CHECK = `<svg width="12" height="12" viewBox="0 0 16 16"><path d="M3 8.5l3.3 3.3L13 4.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICON_X = `<svg width="12" height="12" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+
+function stepper({ticker, field, id, value, step, decimals, min=0, max=1e9, suffix="", wide=false}){
+  const dataAttrs = ticker ? `data-ticker="${ticker}" data-field="${field}"` : `id="${id}"`;
+  return `<div class="stepper${wide ? " wide" : ""}" data-step="${step}" data-decimals="${decimals}" data-min="${min}" data-max="${max}">
+    <button type="button" class="step-btn step-dec" tabindex="-1" aria-label="Decrease">${ICON_MINUS}</button>
+    <input class="num" ${dataAttrs} type="text" inputmode="decimal" value="${Number(value).toFixed(decimals)}">
+    <button type="button" class="step-btn step-inc" tabindex="-1" aria-label="Increase">${ICON_PLUS}</button>
+    ${suffix ? `<span class="stepper-suffix">${suffix}</span>` : ""}
+  </div>`;
+}
+
+/* ---------------- Rendering ---------------- */
+
+function renderAll(){
+  renderMeta();
+  renderTicker();
+  renderTable();
+  renderCards();
+  renderTickerSelect();
+}
+
+function renderMeta(){
+  document.getElementById("metaBaseDate").textContent = state.baseDate || "—";
+  document.getElementById("metaBaseValue").textContent = state.baseValue ? fmt(state.baseValue) : "—";
+  document.getElementById("metaDivisor").textContent = state.divisor ? state.divisor.toLocaleString(undefined,{maximumFractionDigits:2}) : "—";
+  document.getElementById("metaCap").textContent = pct(state.capPct);
+  document.getElementById("metaCount").textContent = activeConstituents().length;
+}
+
+function renderTicker(){
+  const val = currentIndexValue();
+  document.getElementById("tickerValue").textContent = fmt(val);
+  const deltaEl = document.getElementById("tickerDelta");
+  if(!state.baseValue){ deltaEl.textContent = "— awaiting base"; deltaEl.className="delta flat"; return; }
+  const change = (val/state.baseValue - 1) * 100;
+  const sign = change>0?"+":"";
+  deltaEl.textContent = `${sign}${change.toFixed(2)}% vs base`;
+  deltaEl.className = "delta " + (change>0.001?"up":change<-0.001?"down":"flat");
+}
+
+function renderTable(){
+  const raw = rawWeights();
+  const eff = effectiveWeights();
+  const tbody = document.getElementById("constituentsBody");
+  tbody.innerHTML = "";
+  activeConstituents().forEach(c=>{
+    const rw = raw[c.ticker] ?? 0;
+    const ew = eff[c.ticker] ?? 0;
+    const isBreach = ew > state.capPct + 1e-6;
+    const editing = state.editingTicker === c.ticker;
+    const tr = document.createElement("tr");
+
+    const identityCell = editing
+      ? `<div class="edit-cell">
+           <input class="text-input ticker-upper" id="editTickerInput" value="${c.ticker}" maxlength="10" placeholder="Ticker">
+           <input class="text-input" id="editNameInput" value="${c.name}" placeholder="Company name">
+           <input class="text-input" id="editSectorInput" value="${c.sector}" placeholder="Sector">
+           ${editError ? `<div class="edit-error">${editError}</div>` : ""}
+         </div>`
+      : `<div class="ticker-cell"><span class="t">${c.ticker}</span><span class="n">${c.name}</span></div>`;
+
+    const actionsCell = editing
+      ? `<div class="row-actions">
+           <button type="button" class="icon-btn save" data-action="save-edit" data-ticker="${c.ticker}" title="Save changes">${ICON_CHECK}</button>
+           <button type="button" class="icon-btn cancel" data-action="cancel-edit" data-ticker="${c.ticker}" title="Cancel">${ICON_X}</button>
+         </div>`
+      : `<div class="row-actions">
+           <button type="button" class="icon-btn" data-action="edit" data-ticker="${c.ticker}" title="Edit ticker">${ICON_EDIT}</button>
+           <button type="button" class="icon-btn remove" data-action="remove" data-ticker="${c.ticker}" title="Remove ticker">${ICON_TRASH}</button>
+         </div>`;
+
+    tr.innerHTML = `
+      <td>${identityCell}</td>
+      <td>${stepper({ticker:c.ticker, field:"price", value:c.price, step:0.05, decimals:2, min:0})}</td>
+      <td>${stepper({ticker:c.ticker, field:"shares", value:c.shares, step:0.1, decimals:1, min:0})}</td>
+      <td>${stepper({ticker:c.ticker, field:"ff", value:c.ff*100, step:1, decimals:0, min:0, max:100, suffix:"%"})}</td>
+      <td>
+        <div class="cap-bar-wrap">
+          <div class="cap-bar-track">
+            <div class="cap-bar-fill ${isBreach?'breach':''}" style="width:${Math.min(ew*100,100)}%"></div>
+            <div class="cap-line" style="left:${Math.min(state.capPct*100,100)}%"></div>
+          </div>
+          <div class="cap-readout">
+            <span>${pct(rw)} → ${pct(ew)}</span>
+            <span class="badge ${isBreach?'capped':'ok'}">${isBreach?'over cap':'ok'}</span>
+          </div>
+        </div>
+      </td>
+      <td>${actionsCell}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll("input.num").forEach(inp=>{
+    inp.addEventListener("change", onFieldEdit);
+  });
+}
+
+function onFieldEdit(e){
+  const ticker = e.target.dataset.ticker;
+  const field = e.target.dataset.field;
+  const c = state.constituents.find(x=>x.ticker===ticker);
+  let v = parseFloat(e.target.value);
+  if(isNaN(v)) return;
+  if(field==="ff") v = v/100;
+  c[field] = v;
+  renderTicker(); renderTable(); renderCards();
+  saveState();
+}
+
+function renderCards(){
+  document.getElementById("cardFFMC").textContent = state.divisor ? "ETB " + Math.round(cappedTotalFFMC()).toLocaleString() : "—";
+  const eff = effectiveWeights();
+  let maxT="—", maxW=0;
+  Object.entries(eff).forEach(([t,w])=>{ if(w>maxW){maxW=w; maxT=t;} });
+  document.getElementById("cardMax").textContent = state.divisor ? `${maxT} · ${pct(maxW)}` : "—";
+}
+
+function renderTickerSelect(){
+  const sel = document.getElementById("caTicker");
+  const current = sel.value;
+  sel.innerHTML = "";
+  activeConstituents().forEach(c=>{
+    const opt = document.createElement("option");
+    opt.value = c.ticker; opt.textContent = `${c.ticker} — ${c.name}`;
+    sel.appendChild(opt);
+  });
+  if(current) sel.value = current;
+}
+
+function renderLog(){
+  const el = document.getElementById("eventLog");
+  el.innerHTML = "";
+  state.log.slice(-40).forEach(entry=>{
+    const div = document.createElement("div");
+    div.className = "log-entry";
+    div.innerHTML = `<span class="d">${entry.date}</span>${entry.note}`;
+    el.appendChild(div);
+  });
+}
+
+/* ---------------- Edit / remove ticker ---------------- */
+
+function saveTickerEdit(oldTicker){
+  const c = state.constituents.find(x=>x.ticker===oldTicker);
+  if(!c) return;
+  const newTicker = document.getElementById("editTickerInput").value.trim().toUpperCase();
+  const newName = document.getElementById("editNameInput").value.trim();
+  const newSector = document.getElementById("editSectorInput").value.trim() || "Unclassified";
+
+  if(!newTicker || !/^[A-Z0-9.]{1,10}$/.test(newTicker)){
+    editError = "Ticker must be 1-10 letters, numbers, or periods.";
+    renderTable(); return;
+  }
+  if(newTicker !== oldTicker && state.constituents.some(x=>x.ticker.toUpperCase()===newTicker)){
+    editError = `${newTicker} is already used by another constituent.`;
+    renderTable(); return;
+  }
+  if(!newName){
+    editError = "Enter a company name.";
+    renderTable(); return;
+  }
+
+  const renamed = newTicker !== oldTicker;
+  if(renamed && state.capFactors[oldTicker] !== undefined){
+    state.capFactors[newTicker] = state.capFactors[oldTicker];
+    delete state.capFactors[oldTicker];
+  }
+  c.ticker = newTicker;
+  c.name = newName;
+  c.sector = newSector;
+
+  const logDate = state.history.length ? state.history[state.history.length-1].date : state.baseDate;
+  logEvent(logDate, renamed
+    ? `${oldTicker} renamed to ${newTicker} (${newName}); no financial impact.`
+    : `${newTicker}: details updated (${newName}, ${newSector}).`);
+
+  editError = "";
+  state.editingTicker = null;
+  saveState();
+  renderAll();
+}
+
+function removeTicker(ticker){
+  const c = state.constituents.find(x=>x.ticker===ticker);
+  if(!c) return;
+  if(activeConstituents().length <= 1){
+    alert("Cannot remove the last remaining constituent.");
+    return;
+  }
+  if(!confirm(`Remove ${ticker} from the index? The divisor will be adjusted so the index value is unaffected.`)) return;
+
+  const dateStr = nextDate();
+  const before = currentIndexValue();
+  c.active = false;
+  rebalance(dateStr, before, "Corporate action (deletion)");
+  logEvent(dateStr, `${ticker}: removed from index; divisor adjusted for continuity.`);
+  if(state.editingTicker === ticker) state.editingTicker = null;
+  renderAll();
+}
+
+/* ---------------- Add new ticker ---------------- */
+
+function renderAddTickerFields(){
+  const wrap = document.getElementById("addTickerFields");
+  wrap.innerHTML = `
+    <div class="row2">
+      <div>
+        <label class="field-label">Price (ETB)</label>
+        ${stepper({id:"newPrice", value:100, step:1, decimals:2, min:0.01, max:1e7, wide:true})}
+      </div>
+      <div>
+        <label class="field-label">Shares outstanding (M)</label>
+        ${stepper({id:"newShares", value:10, step:0.5, decimals:1, min:0.1, max:1e6, wide:true})}
+      </div>
+    </div>
+    <label class="field-label">Free float %</label>
+    ${stepper({id:"newFF", value:20, step:1, decimals:0, min:1, max:100, suffix:"%", wide:true})}
+  `;
+}
+
+function showStatus(el, msg, isError){
+  el.textContent = msg;
+  el.className = "form-status " + (isError ? "error" : "success");
+}
+
+function resetAddTickerForm(){
+  document.getElementById("newTicker").value = "";
+  document.getElementById("newName").value = "";
+  document.getElementById("newSector").value = "";
+  renderAddTickerFields();
+  document.getElementById("addTickerStatus").textContent = "";
+}
+
+function addTicker(){
+  const statusEl = document.getElementById("addTickerStatus");
+  const ticker = document.getElementById("newTicker").value.trim().toUpperCase();
+  const name = document.getElementById("newName").value.trim();
+  const sector = document.getElementById("newSector").value.trim() || "Unclassified";
+  const price = parseFloat(document.getElementById("newPrice").value);
+  const shares = parseFloat(document.getElementById("newShares").value);
+  const ff = parseFloat(document.getElementById("newFF").value) / 100;
+
+  if(!ticker) return showStatus(statusEl, "Enter a ticker symbol.", true);
+  if(!/^[A-Z0-9.]{1,10}$/.test(ticker)) return showStatus(statusEl, "Ticker may only contain letters, numbers, and periods.", true);
+  if(state.constituents.some(c => c.ticker.toUpperCase() === ticker)) return showStatus(statusEl, `${ticker} is already in the index.`, true);
+  if(!name) return showStatus(statusEl, "Enter a company name.", true);
+  if(!(price > 0)) return showStatus(statusEl, "Price must be greater than 0.", true);
+  if(!(shares > 0)) return showStatus(statusEl, "Shares outstanding must be greater than 0.", true);
+  if(!(ff > 0 && ff <= 1)) return showStatus(statusEl, "Free float must be between 1% and 100%.", true);
+
+  const dateStr = nextDate();
+  const before = currentIndexValue();
+  state.constituents.push({ticker, name, sector, price, shares, ff, active:true});
+  rebalance(dateStr, before, "Corporate action (addition)");
+  logEvent(dateStr, `${ticker}: added to index (${name}); divisor adjusted for continuity.`);
+
+  resetAddTickerForm();
+  showStatus(document.getElementById("addTickerStatus"), `${ticker} added — index held at ${fmt(before)} through the rebalance.`, false);
+  renderAll();
+}
+
+/* ---------------- Corporate action detail fields ---------------- */
+
+function renderCADetail(){
+  const type = document.getElementById("caType").value;
+  const wrap = document.getElementById("caDetailWrap");
+  if(type==="split"){
+    wrap.innerHTML = `<label class="field-label">Split ratio (e.g. 2 = 2-for-1)</label>
+      ${stepper({id:"caRatio", value:2, step:0.5, decimals:1, min:1, max:50, wide:true})}`;
+  } else if(type==="rights_issue"){
+    wrap.innerHTML = `<label class="field-label">Subscription ratio (e.g. 0.10 = 1 new share per 10 held)</label>
+      ${stepper({id:"caRatio", value:0.10, step:0.01, decimals:2, min:0.01, max:5, wide:true})}`;
+  } else if(type==="free_float_update"){
+    wrap.innerHTML = `<label class="field-label">New free-float %</label>
+      ${stepper({id:"caFF", value:30, step:1, decimals:0, min:0, max:100, suffix:"%", wide:true})}`;
+  } else if(type==="cash_dividend"){
+    wrap.innerHTML = `<label class="field-label">Dividend per share (ETB)</label>
+      ${stepper({id:"caDiv", value:5, step:0.5, decimals:1, min:0, max:9999, wide:true})}`;
+  } else {
+    wrap.innerHTML = `<div style="font-size:12px;color:var(--ink-dim);margin-top:8px;">Removes the selected constituent from the index and rebalances.</div>`;
+  }
+}
+
+function applyCorporateAction(){
+  const ticker = document.getElementById("caTicker").value;
+  const type = document.getElementById("caType").value;
+  const c = state.constituents.find(x=>x.ticker===ticker);
+  if(!c) return;
+  const dateStr = nextDate();
+  const before = currentIndexValue();
+  let note = "";
+
+  if(type==="split"){
+    const ratio = parseFloat(document.getElementById("caRatio").value) || 2;
+    c.shares *= ratio;
+    c.price /= ratio;
+    pushHistory(dateStr, `${ticker}: ${ratio}-for-1 split applied (no divisor change).`);
+  } else if(type==="cash_dividend"){
+    const amt = parseFloat(document.getElementById("caDiv").value) || 0;
+    pushHistory(dateStr, `${ticker}: cash dividend of ETB ${amt.toFixed(2)}/share noted (no adjustment — price-return index).`);
+  } else if(type==="rights_issue"){
+    const ratio = parseFloat(document.getElementById("caRatio").value) || 0.1;
+    const newShares = c.shares * ratio;
+    c.shares += newShares;
+    rebalance(dateStr, before, "Corporate action (rights issue)");
+    logEvent(dateStr, `${ticker}: rights issue at 1-for-${(1/ratio).toFixed(2)} added ${(newShares).toFixed(1)}M shares.`);
+  } else if(type==="free_float_update"){
+    const newFF = (parseFloat(document.getElementById("caFF").value)||0)/100;
+    const oldFF = c.ff;
+    c.ff = newFF;
+    rebalance(dateStr, before, "Corporate action (free-float update)");
+    logEvent(dateStr, `${ticker}: free-float updated ${pct(oldFF)} → ${pct(newFF)}.`);
+  } else if(type==="deletion"){
+    c.active = false;
+    rebalance(dateStr, before, "Corporate action (deletion / delisting)");
+    logEvent(dateStr, `${ticker}: removed from index; divisor adjusted for continuity.`);
+  }
+  renderAll();
+}
+
+/* ---------------- Backtest ---------------- */
+
+function seededRandom(seed){
+  let s = seed;
+  return function(){
+    s = (s*9301+49297) % 233280;
+    return s/233280;
+  };
+}
+function gaussian(rand){
+  const u1 = rand(), u2 = rand();
+  return Math.sqrt(-2*Math.log(u1||1e-9)) * Math.cos(2*Math.PI*u2);
+}
+
+function runBacktest(){
+  const rand = seededRandom(42);
+  const days = 60;
+  const rebalanceAt = 30;
+  const startDate = nextDate();
+  const path = [];
+  let rebalances = 0;
+
+  for(let i=0;i<days;i++){
+    const d = new Date(startDate); d.setDate(d.getDate()+i);
+    const dStr = d.toISOString().slice(0,10);
+    activeConstituents().forEach(c=>{
+      const drift = 0.0003 + gaussian(rand)*0.012;
+      c.price = Math.max(0.01, c.price * (1+drift));
+    });
+    if(i>0 && i%rebalanceAt===0){
+      rebalance(dStr, null, "Scheduled backtest rebalance");
+      rebalances++;
+    } else {
+      pushHistory(dStr, null);
+    }
+    path.push({date:dStr, value: currentIndexValue()});
+  }
+
+  document.getElementById("btStart").textContent = fmt(path[0].value);
+  document.getElementById("btEnd").textContent = fmt(path[path.length-1].value);
+  const ret = (path[path.length-1].value/path[0].value - 1)*100;
+  const retEl = document.getElementById("btReturn");
+  retEl.textContent = (ret>0?"+":"")+ret.toFixed(2)+"%";
+  retEl.style.color = ret>0 ? "var(--teal)" : ret<0 ? "var(--rust)" : "var(--ink)";
+  document.getElementById("btRebalances").textContent = rebalances;
+
+  drawChart(path);
+  renderAll();
+}
+
+function drawChart(path){
+  const svg = document.getElementById("btChart");
+  const w=1000, h=220, pad=10;
+  const values = path.map(p=>p.value);
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = (max-min) || 1;
+  const stepX = (w-2*pad)/(path.length-1);
+  const points = values.map((v,i)=>{
+    const x = pad + i*stepX;
+    const y = h-pad - ((v-min)/range)*(h-2*pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const areaPoints = `${pad},${h-pad} ${points} ${w-pad},${h-pad}`;
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#E0A526" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="#E0A526" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${areaPoints}" fill="url(#areaFill)"/>
+    <polyline points="${points}" fill="none" stroke="#E0A526" stroke-width="2.5"/>
+  `;
+}
+
+/* ---------------- Export ---------------- */
+
+function download(filename, content, mime){
+  const blob = new Blob([content], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportCSV(){
+  const tickers = state.constituents.map(c=>c.ticker);
+  const header = ["date","index_value","divisor", ...tickers.map(t=>`weight_${t}`)];
+  const rows = state.history.map(h=>{
+    return [h.date, h.indexValue.toFixed(4), h.divisor.toFixed(4), ...tickers.map(t=>((h.weights[t]||0).toFixed(6)))];
+  });
+  const csv = [header.join(","), ...rows.map(r=>r.join(","))].join("\n");
+  download("esx_index_history.csv", csv, "text/csv");
+}
+
+function exportJSON(){
+  const payload = {
+    index_name: document.getElementById("indexName").textContent,
+    base_date: state.baseDate, base_value: state.baseValue, cap_pct: state.capPct,
+    divisor: state.divisor, history: state.history,
+  };
+  download("esx_index_history.json", JSON.stringify(payload, null, 2), "application/json");
+}
+
+/* ---------------- Wiring ---------------- */
+
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest(".step-btn");
+  if(btn){
+    const wrap = btn.closest(".stepper");
+    const input = wrap.querySelector("input.num");
+    const step = parseFloat(wrap.dataset.step);
+    const decimals = parseInt(wrap.dataset.decimals, 10);
+    const min = parseFloat(wrap.dataset.min);
+    const max = parseFloat(wrap.dataset.max);
+    let val = parseFloat(input.value);
+    if(isNaN(val)) val = 0;
+    val += btn.classList.contains("step-inc") ? step : -step;
+    val = Math.min(max, Math.max(min, val));
+    input.value = val.toFixed(decimals);
+    input.dispatchEvent(new Event("change", {bubbles:true}));
+    return;
+  }
+
+  const actionBtn = e.target.closest("[data-action]");
+  if(actionBtn){
+    const action = actionBtn.dataset.action;
+    const ticker = actionBtn.dataset.ticker;
+    if(action==="edit"){ state.editingTicker = ticker; editError = ""; renderTable(); }
+    else if(action==="cancel-edit"){ state.editingTicker = null; editError = ""; renderTable(); }
+    else if(action==="save-edit"){ saveTickerEdit(ticker); }
+    else if(action==="remove"){ removeTicker(ticker); }
+  }
+});
+
+document.getElementById("btnRecalc").addEventListener("click", ()=>{
+  pushHistory(nextDate(), "Manual recalculation.");
+  renderAll();
+});
+document.getElementById("btnSetBase").addEventListener("click", ()=>{
+  const d = nextDate();
+  const bv = state.baseValue || 1000;
+  state.history = []; state.log = [];
+  setBase(d, bv);
+  renderAll();
+});
+document.getElementById("btnToggleAddTicker").addEventListener("click", ()=>{
+  const form = document.getElementById("addTickerForm");
+  const btn = document.getElementById("btnToggleAddTicker");
+  const opening = form.classList.contains("hidden");
+  form.classList.toggle("hidden");
+  btn.textContent = opening ? "− Close" : "+ Add new ticker";
+  if(opening) document.getElementById("newTicker").focus();
+});
+document.getElementById("btnCancelAddTicker").addEventListener("click", ()=>{
+  resetAddTickerForm();
+  document.getElementById("addTickerForm").classList.add("hidden");
+  document.getElementById("btnToggleAddTicker").textContent = "+ Add new ticker";
+});
+document.getElementById("btnAddTicker").addEventListener("click", addTicker);
+document.getElementById("btnRebalance").addEventListener("click", ()=>{
+  const before = currentIndexValue();
+  rebalance(nextDate(), before, "Manual cap rebalance");
+  renderAll();
+});
+document.getElementById("capSlider").addEventListener("input", (e)=>{
+  state.capPct = parseFloat(e.target.value)/100;
+  document.getElementById("capSliderVal").textContent = pct(state.capPct);
+  renderTable(); renderMeta();
+  saveState();
+});
+document.getElementById("caType").addEventListener("change", renderCADetail);
+document.getElementById("btnApplyCA").addEventListener("click", applyCorporateAction);
+document.getElementById("btnBacktest").addEventListener("click", runBacktest);
+document.getElementById("btnExportCSV").addEventListener("click", exportCSV);
+document.getElementById("btnExportJSON").addEventListener("click", exportJSON);
+
+function resetUiChrome(){
+  renderCADetail();
+  renderAddTickerFields();
+  document.getElementById("addTickerForm").classList.add("hidden");
+  document.getElementById("btnToggleAddTicker").textContent = "+ Add new ticker";
+  document.getElementById("addTickerStatus").textContent = "";
+  document.getElementById("btChart").innerHTML = "";
+  document.getElementById("btStart").textContent = "—";
+  document.getElementById("btEnd").textContent = "—";
+  document.getElementById("btReturn").textContent = "—";
+  document.getElementById("btRebalances").textContent = "—";
+}
+
+function hardReset(){
+  state.constituents = cloneSample();
+  state.capPct = 0.15;
+  state.capFactors = {};
+  state.divisor = null;
+  state.baseDate = null;
+  state.baseValue = null;
+  state.history = [];
+  state.log = [];
+  state.editingTicker = null;
+  editError = "";
+  document.getElementById("indexName").textContent = "ESX Flagship Index";
+  document.getElementById("capSlider").value = 15;
+  document.getElementById("capSliderVal").textContent = "15%";
+  setBase("2026-01-05", 1000.0); // also calls saveState() via pushHistory
+  resetUiChrome();
+  renderAll();
+}
+
+function applySavedState(data){
+  state.constituents = data.constituents;
+  state.capPct = data.capPct ?? 0.15;
+  state.capFactors = data.capFactors || {};
+  state.divisor = data.divisor;
+  state.baseDate = data.baseDate;
+  state.baseValue = data.baseValue;
+  state.history = data.history || [];
+  state.log = data.log || [];
+  state.editingTicker = null;
+  editError = "";
+  document.getElementById("indexName").textContent = data.indexName || "ESX Flagship Index";
+  document.getElementById("capSlider").value = (state.capPct*100).toFixed(1);
+  document.getElementById("capSliderVal").textContent = pct(state.capPct);
+  resetUiChrome();
+  renderAll();
+}
+
+function boot(){
+  storageOk = storageAvailable();
+  const footerEl = document.getElementById("footerNote");
+  if(footerEl){
+    footerEl.textContent = storageOk
+      ? "Autosaved to this browser — Add/Edit/Remove and every recalculation survive a refresh. \"Reset sample data\" clears it. All figures are illustrative sample data."
+      : "Autosave is unavailable in this preview, so changes will reset on refresh — download the file and open it in a browser to keep your changes. All figures are illustrative sample data.";
+  }
+  const saved = storageOk ? loadState() : null;
+  try{
+    if(saved) applySavedState(saved);
+    else hardReset();
+  } catch(err){
+    hardReset(); // corrupted saved data - fall back to a clean slate
+  }
+}
+
+document.getElementById("btnReset").addEventListener("click", ()=>{
+  if(confirm("Reset to sample data? This discards all changes, including anything saved for this browser.")){
+    hardReset();
+  }
+});
+
+boot();
+</script>
+</body>
+</html>

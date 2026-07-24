@@ -1,0 +1,6 @@
+ticker,name,price,shares_outstanding,free_float_pct,sector
+ETEL,Ethio Telecom,845.00,120000000,0.15,Telecommunications
+CBE,Commercial Bank of Ethiopia,610.50,85000000,0.18,Banking
+AWSH,Awash Bank S.C.,455.25,42000000,0.22,Banking
+BOA,Bank of Abyssinia S.C.,398.75,31000000,0.20,Banking
+NIB,Nib Insurance S.C.,212.10,18500000,0.25,Insurance
